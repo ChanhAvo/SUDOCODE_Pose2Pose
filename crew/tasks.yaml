@@ -1,0 +1,24 @@
+# tasks.yaml
+assess_level:
+  description: "Conduct interactive assessment to determine user's sign language level"
+  expected_output: "Proficiency level report with strengths and areas for improvement"
+  agent: testing_agent
+  
+create_learning_plan:
+  description: "Generate personalized learning plan based on assessment results"
+  expected_output: "Structured learning curriculum with milestones and resources"
+  agent: learning_planner
+  context:
+    - assess_level
+  
+validate_pose:
+  description: "Analyze uploaded image/video to validate pose correctness"
+  expected_output: "Pose validation report with accuracy percentage and corrections"
+  agent: pose_validator
+  
+provide_feedback:
+  description: "Engage with user to provide detailed pose improvement guidance"
+  expected_output: "Actionable feedback with specific correction instructions"
+  agent: feedback_agent
+  context:
+    - validate_pose
