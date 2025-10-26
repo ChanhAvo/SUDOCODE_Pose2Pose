@@ -1,0 +1,198 @@
+# tasks.yaml - A2A Task Definitions with Agent Coordination
+
+# Task 1: Initial Assessment
+assess_user_level:
+  description: |
+    Conduct a comprehensive assessment of the user's current Vietnamese Sign Language proficiency.
+    
+    User input: {user_responses}
+    
+    Tasks to perform:
+    1. Ask the user about their VSL experience level
+    2. Present 3-5 test signs appropriate for different levels
+    3. Evaluate their responses and demonstrations
+    4. Identify specific strengths and gaps in knowledge
+    5. Determine their current proficiency level (Beginner, Intermediate, Advanced)
+    
+    Coordinate with teaching_agent to understand what each level requires.
+  expected_output: |
+    A detailed proficiency report in JSON format containing:
+    - Overall proficiency level (Beginner/Intermediate/Advanced)
+    - Strengths list (specific signs or concepts they know well)
+    - Areas for improvement (specific gaps identified)
+    - Recommended starting point for learning plan
+    - Estimated time to next level
+  agent: assessment_agent
+
+# Task 2: Learning Plan Creation
+create_personalized_learning_plan:
+  description: |
+    Based on the assessment results, create a comprehensive, personalized learning plan.
+    
+    Assessment results: {assessment_results}
+    User goals: {user_goals}
+    
+    Tasks to perform:
+    1. Review the assessment agent's findings
+    2. Design a structured curriculum with clear milestones
+    3. Select appropriate signs and lessons for each level
+    4. Set realistic timelines and practice schedules
+    5. Include progress checkpoints
+    
+    Coordinate with progress_tracking_agent to ensure trackable metrics.
+  expected_output: |
+    A structured learning plan in JSON format with:
+    - Learning phases (each with duration, goals, and success criteria)
+    - Daily/weekly practice schedule
+    - List of signs to master in order
+    - Milestone checkpoints and assessment points
+    - Recommended resources (videos, images, texts from knowledge base)
+  agent: teaching_agent
+  context:
+    - assess_user_level
+
+# Task 3: Pose Validation and Analysis
+validate_user_pose:
+  description: |
+    Analyze the user's pose input (image/video) using CV tools and validate accuracy.
+    
+    Input media: {media_input}
+    Target sign: {target_sign}
+    
+    Tasks to perform:
+    1. Use pose detection tool to extract keypoints from media
+    2. Compare detected pose with reference pose for {target_sign}
+    3. Calculate accuracy percentage (must be >= 80% for passing)
+    4. Identify specific body parts or movements that need correction
+    5. Prepare technical data for feedback agent
+    
+    Tools to use: Pose Detection Tool, Pose Validation Tool
+  expected_output: |
+    A pose validation report containing:
+    - Detected pose keypoints and confidence scores
+    - Accuracy percentage compared to reference
+    - Pass/fail status (>= 80% threshold)
+    - List of specific corrections needed
+    - Technical measurements for each body part
+  agent: feedback_agent
+  tools:
+    - pose_detection_tool
+    - pose_validation_tool
+
+# Task 4: Provide Detailed Feedback
+provide_improvement_feedback:
+  description: |
+    Translate technical pose validation results into actionable, user-friendly feedback.
+    
+    Validation results: {validation_results}
+    User level: {user_level}
+    
+    Tasks to perform:
+    1. Review pose validation data from previous task
+    2. Formulate clear, encouraging feedback messages
+    3. Provide step-by-step correction instructions
+    4. Suggest practice exercises for problem areas
+    5. Use MCP knowledge base to find relevant tutorial materials
+    6. Coordinate with teaching_agent for pedagogical approach
+    
+    Tools to use: MCP Knowledge Base Tool
+  expected_output: |
+    User-friendly feedback report with:
+    - Overall assessment summary (encouraging tone)
+    - What they did correctly (positive reinforcement)
+    - Specific corrections with clear instructions
+    - Practice recommendations
+    - Links to tutorial resources from knowledge base
+    - Estimated practice time needed
+  agent: feedback_agent
+  context:
+    - validate_user_pose
+  tools:
+    - mcp_knowledge_base_tool
+
+# Task 5: Real-time Training Session
+conduct_realtime_training:
+  description: |
+    Guide user through a live practice session with near real-time feedback.
+    
+    Practice session config: {session_config}
+    Target signs: {target_signs}
+    
+    Tasks to perform:
+    1. Start video stream analysis using real-time pose feedback tool
+    2. Monitor pose accuracy frame-by-frame
+    3. Provide immediate verbal feedback (<2 second latency)
+    4. Adjust difficulty based on performance
+    5. Coordinate with feedback_agent for consistent guidance
+    6. Track session metrics for progress_tracking_agent
+    
+    Tools to use: Real-time Pose Feedback Tool
+  expected_output: |
+    Training session summary with:
+    - Session duration and signs practiced
+    - Frame-by-frame performance timeline
+    - Average accuracy score for session
+    - Moments of excellence (high accuracy periods)
+    - Areas that need more practice
+    - Overall session grade
+    - Recommendations for next session
+  agent: trainer_agent
+  tools:
+    - realtime_pose_feedback_tool
+
+# Task 6: Progress Tracking and Analysis
+track_and_analyze_progress:
+  description: |
+    Analyze user's learning progress across multiple sessions and update learning plan.
+    
+    Historical data: {user_history}
+    Current session: {current_session_data}
+    
+    Tasks to perform:
+    1. Aggregate performance data from all sessions
+    2. Calculate progress metrics (accuracy trends, signs mastered, time invested)
+    3. Compare actual progress vs. learning plan timeline
+    4. Identify patterns (strengths, recurring difficulties)
+    5. Coordinate with teaching_agent to adjust learning plan if needed
+    6. Generate motivational insights and next steps
+  expected_output: |
+    Progress analysis report with:
+    - Overall progress percentage toward current level goals
+    - List of signs mastered (>= 80% accuracy consistently)
+    - Performance trends (improving, stable, declining)
+    - Time spent vs. planned time
+    - Adjusted learning plan recommendations
+    - Achievements and milestones reached
+    - Motivational message and next goals
+  agent: progress_tracking_agent
+  context:
+    - create_personalized_learning_plan
+    - conduct_realtime_training
+
+# Task 7: Knowledge Base Query (RAG)
+query_learning_resources:
+  description: |
+    Search multimodal knowledge base to find relevant VSL learning resources.
+    
+    User query: {user_query}
+    Context: {learning_context}
+    
+    Tasks to perform:
+    1. Use MCP tool to query vector database
+    2. Search across text, images, and video resources
+    3. Rank results by relevance
+    4. Filter by user's current level
+    5. Provide diverse resource types
+    
+    Tools to use: MCP Knowledge Base Tool
+  expected_output: |
+    Resource recommendations with:
+    - Top 5 most relevant resources
+    - Each resource with: type, title, description, relevance score
+    - Snippets or timestamps of relevant content
+    - Difficulty level tags
+    - Suggested order of consumption
+  agent: teaching_agent
+  tools:
+    - mcp_knowledge_base_tool
+
