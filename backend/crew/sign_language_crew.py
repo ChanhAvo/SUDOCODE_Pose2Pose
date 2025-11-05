@@ -30,8 +30,8 @@ class SignLanguageCrew:
     A2A Multi-Agent System with specialized agents for teaching, assessment, feedback, and progress tracking
     """
 
-    agents_config = Path(__file__).parent / 'agents.yaml'
-    tasks_config = Path(__file__).parent / 'tasks.yaml'
+    agents_config = 'agents.yaml'
+    tasks_config = 'tasks.yaml'
 
     def __init__(self):
         """Initialize the crew with tools"""
@@ -112,11 +112,21 @@ class SignLanguageCrew:
     # ==================== TASKS ====================
 
     @task
-    def assess_user_level_task(self) -> Task:
-        """Task 1: Initial proficiency assessment"""
+    def generate_assessment_questions_task(self) -> Task:
+        """Task 1A: Generate assessment questions from database"""
         return Task(
-            config=self.tasks_config['assess_user_level'],
+            config=self.tasks_config['generate_assessment_questions'],
             agent=self.assessment_agent()
+        )
+
+    @task
+    def evaluate_assessment_responses_task(self) -> Task:
+        """Task 1B: Evaluate user responses and determine level"""
+        return Task(
+            config=self.tasks_config['evaluate_assessment_responses'],
+            agent=self.assessment_agent(),
+            # Uses questions as context
+            context=[self.generate_assessment_questions_task()]
         )
 
     @task
@@ -125,7 +135,7 @@ class SignLanguageCrew:
         return Task(
             config=self.tasks_config['create_personalized_learning_plan'],
             agent=self.teaching_agent(),
-            context=[self.assess_user_level_task()]
+            context=[self.evaluate_assessment_responses_task()]
         )
 
     @task
@@ -178,8 +188,8 @@ class SignLanguageCrew:
     @crew
     def assessment_and_planning_crew(self) -> Crew:
         """
-        Workflow 1: Initial Assessment and Learning Plan Creation
-        Used when a new user joins or wants to reassess their level
+        Workflow 1: Two-stage assessment with pause, then planning
+        Stage 1: Generate questions → Stage 2: Evaluate responses → Stage 3: Create plan
         """
         return Crew(
             agents=[
@@ -187,12 +197,13 @@ class SignLanguageCrew:
                 self.teaching_agent()
             ],
             tasks=[
-                self.assess_user_level_task(),
+                self.generate_assessment_questions_task(),
+                self.evaluate_assessment_responses_task(),
                 self.create_learning_plan_task()
             ],
             process=Process.sequential,
             verbose=True,
-            memory=True,  # Enable memory for agent context sharing
+            memory=True,
             embedder={
                 "provider": "openai",
                 "config": {
@@ -257,7 +268,8 @@ class SignLanguageCrew:
                 self.progress_tracking_agent()
             ],
             tasks=[
-                self.assess_user_level_task(),
+                self.generate_assessment_questions_task(),
+                self.evaluate_assessment_responses_task(),
                 self.create_learning_plan_task(),
                 self.validate_pose_task(),
                 self.provide_feedback_task(),
@@ -277,23 +289,72 @@ class SignLanguageCrew:
 
     # ==================== CONVENIENCE METHODS ====================
 
-    def run_assessment_and_planning(self, user_responses: str, user_goals: str) -> Dict:
+    def run_assessment_and_planning_interactive(self, list_of_words: str, user_goals: str) -> Dict:
         """
-        Run assessment and create learning plan
+        Run interactive assessment with pause for user input
+
+        Stage 1: Generate questions
+        PAUSE: User provides responses
+        Stage 2: Evaluate responses and create learning plan
 
         Args:
-            user_responses: User's responses to initial questions
+            list_of_words: Available signs in database
             user_goals: User's learning goals
 
         Returns:
-            Dict with assessment results and learning plan
+            Dict with questions, assessment, and learning plan
         """
-        crew = self.assessment_and_planning_crew()
-        result = crew.kickoff(inputs={
+        # Stage 1: Generate assessment questions
+        stage1_crew = Crew(
+            agents=[self.assessment_agent()],
+            tasks=[self.generate_assessment_questions_task()],
+            verbose=True
+        )
+
+        questions_result = stage1_crew.kickoff(inputs={
+            'list_of_words': list_of_words
+        })
+
+        print("\n" + "="*60)
+        print("📋 ASSESSMENT QUESTIONS GENERATED")
+        print("="*60)
+        print(questions_result.raw)
+        print("\n" + "="*60)
+
+        # PAUSE: Collect user responses
+        user_responses = input(
+            "\n📝 Please provide your responses to the questions above (JSON format or text): ")
+
+        # Stage 2: Evaluate responses and create learning plan
+        stage2_crew = Crew(
+            agents=[
+                self.assessment_agent(),
+                self.teaching_agent()
+            ],
+            tasks=[
+                self.evaluate_assessment_responses_task(),
+                self.create_learning_plan_task()
+            ],
+            verbose=True,
+            memory=True,
+            embedder={
+                "provider": "openai",
+                "config": {
+                    "model": "text-embedding-3-small"
+                }
+            }
+        )
+
+        final_result = stage2_crew.kickoff(inputs={
             'user_responses': user_responses,
             'user_goals': user_goals
         })
-        return result
+
+        return {
+            'questions': questions_result.raw,
+            'user_responses': user_responses,
+            'assessment_and_plan': final_result.raw
+        }
 
     def run_pose_feedback(self, media_input: str, target_sign: str, user_level: str) -> Dict:
         """
@@ -386,28 +447,31 @@ def demo_a2a_workflow():
 
     crew = SignLanguageCrew()
 
-    # Demo 1: Assessment and Planning
-    print("\n[DEMO 1] Assessment and Planning Workflow")
+    # Demo 1: Interactive Assessment and Planning
+    print("\n[DEMO 1] Interactive Assessment and Planning Workflow")
     print("-" * 60)
-    result1 = crew.run_assessment_and_planning(
-        user_responses="I'm a complete beginner, never learned sign language before",
+    result1 = crew.run_assessment_and_planning_interactive(
+        list_of_words="hello, goodbye, thank you, please, happy, sad, intelligent, beautiful, family",
         user_goals="I want to learn basic VSL for daily communication"
     )
-    print("Assessment Result:", result1)
+    print("\n" + "="*60)
+    print("📊 FINAL RESULTS")
+    print("="*60)
+    print(result1)
 
     # Demo 2: Pose Feedback
-    print("\n[DEMO 2] Pose Feedback Workflow")
-    print("-" * 60)
-    result2 = crew.run_pose_feedback(
-        media_input="./uploads/user_greeting_pose.jpg",
-        target_sign="greeting",
-        user_level="beginner"
-    )
-    print("Feedback Result:", result2)
+    # print("\n[DEMO 2] Pose Feedback Workflow")
+    # print("-" * 60)
+    # result2 = crew.run_pose_feedback(
+    #     media_input="./uploads/user_greeting_pose.jpg",
+    #     target_sign="greeting",
+    #     user_level="beginner"
+    # )
+    # print("Feedback Result:", result2)
 
-    print("\n" + "=" * 60)
-    print("A2A Demo Complete!")
-    print("=" * 60)
+    # print("\n" + "=" * 60)
+    # print("A2A Demo Complete!")
+    # print("=" * 60)
 
 
 if __name__ == "__main__":

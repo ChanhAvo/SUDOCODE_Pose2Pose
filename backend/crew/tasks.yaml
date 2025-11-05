@@ -1,35 +1,66 @@
 # tasks.yaml - A2A Task Definitions with Agent Coordination
-
-# Task 1: Initial Assessment
-assess_user_level:
+# Task 1A: Generate Assessment Questions
+generate_assessment_questions:
   description: |
-    Conduct a comprehensive assessment of the user's current Vietnamese Sign Language proficiency.
+    Generate 3-5 tiered assessment questions based on available VSL signs in database.
     
-    User input: {user_responses}
+    Available signs: {list_of_words}
     
-    Tasks to perform:
-    1. Ask the user about their VSL experience level
-    2. Present 3-5 test signs appropriate for different levels
-    3. Evaluate their responses and demonstrations
-    4. Identify specific strengths and gaps in knowledge
-    5. Determine their current proficiency level (Beginner, Intermediate, Advanced)
+    Tasks:
+    1. Select 1-2 beginner signs (common greetings, basic words)
+    2. Select 1-2 intermediate signs (everyday phrases)
+    3. Select 1 advanced sign (complex expressions)
+    4. Format as interactive questions
     
-    Coordinate with teaching_agent to understand what each level requires.
   expected_output: |
-    A detailed proficiency report in JSON format containing:
-    - Overall proficiency level (Beginner/Intermediate/Advanced)
-    - Strengths list (specific signs or concepts they know well)
-    - Areas for improvement (specific gaps identified)
-    - Recommended starting point for learning plan
-    - Estimated time to next level
+    JSON array of assessment questions:
+    [
+      {
+        "id": "q1",
+        "level": "beginner",
+        "sign": "hello",
+        "question": "Can you demonstrate the sign for 'hello'?",
+        "type": "demonstration"
+      },
+      ...
+    ]
+  agent: assessment_agent
+
+# Task 1B: Evaluate User Responses
+evaluate_assessment_responses:
+  description: |
+    Analyze user's answers to assessment questions and determine proficiency level.
+    
+    User responses: {user_responses}
+    
+    The assessment questions were generated in a previous execution and are provided in context memory.
+    
+    Tasks:
+    1. Review the assessment questions (from context/memory)
+    2. Analyze the user's responses: {user_responses}
+    3. Score each response (correct/incorrect/partial)
+    4. Calculate overall accuracy percentage
+    5. Identify knowledge gaps
+    6. Determine proficiency level (Beginner/Intermediate/Advanced)
+    
+  expected_output: |
+    Proficiency report in JSON:
+    {
+      "level": "Beginner|Intermediate|Advanced",
+      "score_percentage": 0-100,
+      "strengths": ["sign1", "sign2"],
+      "gaps": ["sign3", "sign4"],
+      "recommended_start": "lesson_id",
+      "estimated_time_to_next_level": "X weeks"
+    }
   agent: assessment_agent
 
 # Task 2: Learning Plan Creation
 create_personalized_learning_plan:
   description: |
-    Based on the assessment results, create a comprehensive, personalized learning plan.
+    Based on the assessment results from the previous task, create a comprehensive, personalized learning plan.
     
-    Assessment results: {assessment_results}
+    Previous task provided the proficiency assessment (available in context).
     User goals: {user_goals}
     
     Tasks to perform:
@@ -48,8 +79,6 @@ create_personalized_learning_plan:
     - Milestone checkpoints and assessment points
     - Recommended resources (videos, images, texts from knowledge base)
   agent: teaching_agent
-  context:
-    - assess_user_level
 
 # Task 3: Pose Validation and Analysis
 validate_user_pose:
@@ -75,9 +104,6 @@ validate_user_pose:
     - List of specific corrections needed
     - Technical measurements for each body part
   agent: feedback_agent
-  tools:
-    - pose_detection_tool
-    - pose_validation_tool
 
 # Task 4: Provide Detailed Feedback
 provide_improvement_feedback:
@@ -105,10 +131,6 @@ provide_improvement_feedback:
     - Links to tutorial resources from knowledge base
     - Estimated practice time needed
   agent: feedback_agent
-  context:
-    - validate_user_pose
-  tools:
-    - mcp_knowledge_base_tool
 
 # Task 5: Real-time Training Session
 conduct_realtime_training:
@@ -137,8 +159,6 @@ conduct_realtime_training:
     - Overall session grade
     - Recommendations for next session
   agent: trainer_agent
-  tools:
-    - realtime_pose_feedback_tool
 
 # Task 6: Progress Tracking and Analysis
 track_and_analyze_progress:
@@ -165,9 +185,6 @@ track_and_analyze_progress:
     - Achievements and milestones reached
     - Motivational message and next goals
   agent: progress_tracking_agent
-  context:
-    - create_personalized_learning_plan
-    - conduct_realtime_training
 
 # Task 7: Knowledge Base Query (RAG)
 query_learning_resources:
@@ -193,6 +210,4 @@ query_learning_resources:
     - Difficulty level tags
     - Suggested order of consumption
   agent: teaching_agent
-  tools:
-    - mcp_knowledge_base_tool
 

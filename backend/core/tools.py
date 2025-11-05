@@ -3,7 +3,7 @@ Custom tools for Sign Language Pose Detection and Validation
 These are placeholder tools that will integrate with actual CV models
 """
 
-from crewai_tools import BaseTool
+from crewai.tools import BaseTool
 from typing import Type, Optional, Dict, Any
 from pydantic import BaseModel, Field
 import json
@@ -12,7 +12,8 @@ import json
 class PoseDetectionInput(BaseModel):
     """Input schema for pose detection tool"""
     image_path: str = Field(..., description="Path to the image or video file")
-    reference_pose: Optional[str] = Field(None, description="Reference pose ID to compare against")
+    reference_pose: Optional[str] = Field(
+        None, description="Reference pose ID to compare against")
 
 
 class PoseDetectionTool(BaseTool):
@@ -29,7 +30,7 @@ class PoseDetectionTool(BaseTool):
         In production, this would call your actual CV model
         """
         # TODO: Integrate with actual pose detection model (MediaPipe, OpenPose, etc.)
-        
+
         # Simulated response
         result = {
             "status": "success",
@@ -44,7 +45,7 @@ class PoseDetectionTool(BaseTool):
                 "pose_classification": "greeting_sign"
             }
         }
-        
+
         if reference_pose:
             result["comparison"] = {
                 "reference_pose_id": reference_pose,
@@ -55,14 +56,16 @@ class PoseDetectionTool(BaseTool):
                     "Rotate left wrist 15 degrees clockwise"
                 ]
             }
-        
+
         return json.dumps(result, indent=2)
 
 
 class PoseValidationInput(BaseModel):
     """Input schema for pose validation tool"""
-    detected_pose: str = Field(..., description="JSON string of detected pose data")
-    target_sign: str = Field(..., description="Target sign language gesture name")
+    detected_pose: str = Field(...,
+                               description="JSON string of detected pose data")
+    target_sign: str = Field(...,
+                             description="Target sign language gesture name")
 
 
 class PoseValidationTool(BaseTool):
@@ -79,7 +82,7 @@ class PoseValidationTool(BaseTool):
         In production, this would compare against a pose database
         """
         # TODO: Integrate with pose validation logic and database
-        
+
         result = {
             "status": "validated",
             "target_sign": target_sign,
@@ -97,14 +100,15 @@ class PoseValidationTool(BaseTool):
                 "difficulty_level": "intermediate"
             }
         }
-        
+
         return json.dumps(result, indent=2)
 
 
 class RealTimePoseFeedbackInput(BaseModel):
     """Input schema for real-time pose feedback"""
     video_stream_id: str = Field(..., description="Video stream identifier")
-    duration_seconds: int = Field(default=10, description="Duration to analyze")
+    duration_seconds: int = Field(
+        default=10, description="Duration to analyze")
 
 
 class RealTimePoseFeedbackTool(BaseTool):
@@ -121,7 +125,7 @@ class RealTimePoseFeedbackTool(BaseTool):
         In production, this would process live video stream
         """
         # TODO: Integrate with real-time video processing pipeline
-        
+
         result = {
             "status": "streaming_complete",
             "video_stream_id": video_stream_id,
@@ -138,14 +142,15 @@ class RealTimePoseFeedbackTool(BaseTool):
                 {"timestamp": "00:08", "feedback": "Slight drift in left hand, readjust"}
             ]
         }
-        
+
         return json.dumps(result, indent=2)
 
 
 class MCPIntegrationInput(BaseModel):
     """Input schema for MCP tool integration"""
     query: str = Field(..., description="Query for the MCP knowledge base")
-    modality: str = Field(default="text", description="Modality: text, image, or video")
+    modality: str = Field(
+        default="text", description="Modality: text, image, or video")
 
 
 class MCPKnowledgeBaseTool(BaseTool):
@@ -162,7 +167,7 @@ class MCPKnowledgeBaseTool(BaseTool):
         In production, this would query the actual vector database
         """
         # TODO: Integrate with MCP server and vector database (Trâm Anh's work)
-        
+
         result = {
             "status": "retrieved",
             "query": query,
@@ -187,5 +192,5 @@ class MCPKnowledgeBaseTool(BaseTool):
                 }
             ]
         }
-        
+
         return json.dumps(result, indent=2)
