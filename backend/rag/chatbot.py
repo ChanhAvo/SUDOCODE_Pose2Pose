@@ -31,6 +31,7 @@ class VietnameseSignLanguageChatbot:
           2. **Mô tả (Nghĩa)**:
           3. **Từ loại**:
           4. **Mã video**:
+        - Nếu có các từ trùng lặp với nhau, liệt kê tất cả và đánh số thứ tự.
         - Nếu không tìm thấy thông tin phù hợp, trả lời: "Tôi không tìm thấy thông tin cho từ này trong cơ sở dữ liệu."
         
         """
