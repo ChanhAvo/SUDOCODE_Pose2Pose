@@ -7,7 +7,7 @@ from langchain_classic.docstore.document import Document
 class VietnameseSignLanguageChatbot:
     def __init__(self, knowledge_base: VSLKnowledgeBase):
         self.knowledge_base = knowledge_base
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
         self.retriever = knowledge_base.retriever
         self.vectorstore = knowledge_base.vectorstore
         self.relevance_threshold = 0.7
@@ -25,15 +25,30 @@ class VietnameseSignLanguageChatbot:
         
 
         Yêu cầu trả lời:
-        - Chỉ dựa vào dữ liệu trên.
-        - Trình bày các thông tin theo định dạng:
-          1. **Từ**:
-          2. **Mô tả (Nghĩa)**:
-          3. **Từ loại**:
-          4. **Mã video**:
-        - Nếu có các từ trùng lặp với nhau, liệt kê tất cả và đánh số thứ tự.
-        - Nếu không tìm thấy thông tin phù hợp, trả lời: "Tôi không tìm thấy thông tin cho từ này trong cơ sở dữ liệu."
-        
+        - Chỉ dựa trên dữ liệu trong ngữ cảnh.
+        - Trình bày theo cấu trúc sau đối với mỗi mục tìm được:
+        "Từ … có nghĩa là … và đây là một … (từ loại)." 
+        - Nếu mã video (_id) kết thúc bằng:
+            - B → thêm câu: "Từ này được miêu tả theo ngôn ngữ ký hiệu của miền Bắc."
+            - T → thêm câu: "Từ này được miêu tả theo ngôn ngữ ký hiệu của miền Trung."
+            - N → thêm câu: "Từ này được miêu tả theo ngôn ngữ ký hiệu của miền Nam."
+        -Nếu không kết thúc bằng B/T/N → không cần ghi gì về vùng miền.
+        - Sau đó mô tả **Hướng dẫn ký hiệu** theo dạng một đoạn văn, bắt đầu bằng:
+        "Để thực hiện ký hiệu của từ này…"
+        + Rút gọn tối đa.
+        + Chỉ giữ các bước quan trọng nhất (đầu tiên – sau đó – cuối cùng).
+        + Loại bỏ toàn bộ phần trùng lặp hoặc mô tả “giữ nguyên tư thế”.
+
+        - Nếu mục nào không có phần hướng dẫn → trả lời:
+        "Bạn có thể xem video để hiểu cách thực hiện ký hiệu của từ này."
+
+        - Nếu từ có **nhiều kết quả**:
+        + Chỉ nêu **Từ – Nghĩa – Từ loại** một lần.
+        + Sau đó nói: “Từ này có nhiều cách diễn tả tùy vùng miền” rồi liệt kê từng vùng cùng với **Hướng dẫn** tương ứng.
+        + Không lặp lại phần Từ, Nghĩa, Từ loại trong từng vùng.
+        - Nếu từ **chỉ có một mục** và **không chia miền**, thì trả lời một cách tự nhiên, KHÔNG được tự tạo thêm vùng miền.
+        - Nếu không tìm thấy dữ liệu phù hợp → trả lời:
+        "Tôi không tìm thấy thông tin cho từ này trong cơ sở dữ liệu."
         """
         
 
@@ -81,7 +96,8 @@ class VietnameseSignLanguageChatbot:
                         f"{i}. **Từ**: {row.get('word', '')}\n"
                         f"**Mô tả (Nghĩa)**: {row.get('description', '')}\n"
                         f"**Từ loại**: {row.get('tl', '')}\n"
-                        f"**Mã video**: {row.get('_id', '')}"
+                        f"**Mã video**: {row.get('_id', '')}\n"
+                        f"**Hướng dẫn**: {row.get('instruction', '')}"
                     )
             context = "\n\n".join(context_parts)
             final_prompt = self.prompt.format(context=context, question=query)

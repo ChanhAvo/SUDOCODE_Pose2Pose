@@ -20,7 +20,8 @@ class VSLKnowledgeBase:
                     "description": row.get("description", ""),
                     "video_id": row.get("_id", ""),
                     "part_of_speech": row.get("tl", ""),
-                    "type": row.get("type", "")
+                    "type": row.get("type", ""),
+                    "instruction": row.get("instruction", "")
                 }
             )
             for _, row in self.df.iterrows()

@@ -5,7 +5,7 @@ from chatbot import VietnameseSignLanguageChatbot
 import config
 
 os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
-data_path = "VSL_DATA.json"  
+data_path = "VSL_DATA_merged.json"  
 chroma_path = "models/vsl_chroma_index"
 
 data_handler = VietnameseSignLanguageData(data_path)
