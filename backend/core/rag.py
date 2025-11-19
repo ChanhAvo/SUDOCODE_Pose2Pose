@@ -185,7 +185,7 @@ class RAGBuilder:
 
     def with_llm(
         self,
-        model: str = "gpt-4o",
+        model: str = "gpt-5-mini",
         temperature: float = 0.7,
         api_key: Optional[str] = None,
     ) -> "RAGBuilder":

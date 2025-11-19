@@ -110,6 +110,25 @@ class Config(BaseSettings):
         description="Path to video ID to Google Drive file ID mapping"
     )
 
+    # Assessment Settings
+    assessment_temperature: float = Field(
+        default=0.7,
+        description="Temperature for assessment LLM generation",
+        ge=0.0,
+        le=2.0
+    )
+
+    assessment_max_tokens: int = Field(
+        default=4000,
+        description="Maximum tokens for assessment LLM responses",
+        ge=1000
+    )
+
+    user_plans_directory: str = Field(
+        default="data/user_plans",
+        description="Directory to store generated user learning plans"
+    )
+
     # Logging Settings
     log_level: str = Field(
         default="INFO",

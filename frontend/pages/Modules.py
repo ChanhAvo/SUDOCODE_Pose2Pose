@@ -1,5 +1,36 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
+import sys
+from pathlib import Path
+
+# Add backend to path
+backend_path = Path(__file__).parent.parent.parent / "backend"
+sys.path.insert(0, str(backend_path))
+
+from backend.assessment.database import get_learning_plan_db
+
+
+def load_user_modules():
+    """Load modules from custom plan, JSON database, or default database."""
+    # Priority 1: Check session state (most recent)
+    if "learning_plan" in st.session_state and st.session_state.learning_plan:
+        return st.session_state.learning_plan["modules"]
+
+    # Priority 2: Check JSON database (persistent storage)
+    if "user_profile" in st.session_state:
+        user_id = st.session_state.user_profile.get("id")
+        if user_id:
+            db = get_learning_plan_db()
+            plan = db.get_plan_dict(user_id)
+            if plan:
+                # Cache in session state for faster access
+                st.session_state.learning_plan = plan
+                return plan["modules"]
+
+    # Priority 3: Fallback to static modules
+    level = st.session_state.user_profile.get("level", "Beginner")
+    return MODULES_DATABASE.get(level, [])
+
 
 # Page configuration
 st.set_page_config(
@@ -436,7 +467,7 @@ st.markdown("---")
 # Module List
 st.markdown(f"## 🎓 {user_level} Level Modules")
 
-current_modules = MODULES_DATABASE.get(user_level, [])
+current_modules = load_user_modules()
 
 if not current_modules:
     st.warning("No modules available. Please take the assessment first!")

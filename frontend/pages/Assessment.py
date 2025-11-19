@@ -1,6 +1,18 @@
 import streamlit as st
 from datetime import datetime
 import json
+import sys
+from pathlib import Path
+
+# Add backend to path
+backend_path = Path(__file__).parent.parent.parent / "backend"
+sys.path.insert(0, str(backend_path))
+
+from backend.functions import (
+    generate_dynamic_quiz,
+    score_quiz,
+    generate_learning_plan
+)
 
 # Page configuration
 st.set_page_config(
@@ -393,55 +405,56 @@ elif st.session_state.assessment_step == 2:
     st.markdown("## Step 2: Knowledge Assessment Quiz")
     st.markdown(f"Welcome, **{st.session_state.basic_info['name']}**! Let's assess your current knowledge.")
 
+    # Generate dynamic quiz if not already generated
+    if "dynamic_quiz" not in st.session_state:
+        with st.spinner("🎯 Creating your personalized quiz..."):
+            quiz_result = generate_dynamic_quiz(st.session_state.basic_info)
+
+            if quiz_result["success"]:
+                st.session_state.dynamic_quiz = quiz_result["questions"]
+
+                if quiz_result.get("source") == "static_fallback":
+                    st.info("Using standard quiz questions. Your answers will still be personalized!")
+            else:
+                st.error("Failed to generate quiz. Please try again or contact support.")
+                st.stop()
+
     st.info("**Tip**: Answer honestly - this helps us create the perfect learning path for you. There's no passing or failing!")
 
+    # Display questions
     with st.form("quiz_form"):
-        # Multiple Choice Questions
-        st.markdown("### Part A: Multiple Choice Questions")
-        st.markdown("Select the best answer for each question.")
+        st.markdown("### Quiz Questions")
 
-        for idx, q in enumerate(QUIZ_QUESTIONS["multiple_choice"], 1):
+        for idx, q in enumerate(st.session_state.dynamic_quiz, 1):
             st.markdown(f"""
                 <div class="question-card">
                     <p style="font-weight: 600; color: #1E88E5; margin-bottom: 0.5rem;">
-                        Question {idx} of {len(QUIZ_QUESTIONS["multiple_choice"])}
+                        Question {idx} of {len(st.session_state.dynamic_quiz)}
                     </p>
                     <p style="font-size: 1.1rem; margin-bottom: 1rem;">{q['question']}</p>
                 </div>
             """, unsafe_allow_html=True)
 
-            answer = st.radio(
-                "Select your answer:",
-                options=range(len(q["options"])),
-                format_func=lambda x: q["options"][x],
-                key=f"mc_{q['id']}"
-            )
-            st.session_state.quiz_answers[q["id"]] = answer
-            st.markdown("<br>", unsafe_allow_html=True)
+            if q["type"] == "multiple_choice":
+                # Multiple choice
+                answer = st.radio(
+                    "Select your answer:",
+                    options=range(len(q["options"])),
+                    format_func=lambda x, opts=q["options"]: opts[x],
+                    key=f"q_{q['id']}"
+                )
+                st.session_state.quiz_answers[q["id"]] = answer
 
-        st.markdown("---")
+            else:  # short_answer
+                # Short answer
+                answer = st.text_area(
+                    "Your answer:",
+                    placeholder="Type your detailed answer here...",
+                    height=120,
+                    key=f"q_{q['id']}"
+                )
+                st.session_state.quiz_answers[q["id"]] = answer
 
-        # Short Answer Questions
-        st.markdown("### Part B: Short Answer Questions")
-        st.markdown("Please provide thoughtful answers in your own words.")
-
-        for idx, q in enumerate(QUIZ_QUESTIONS["short_answer"], 1):
-            st.markdown(f"""
-                <div class="question-card">
-                    <p style="font-weight: 600; color: #1E88E5; margin-bottom: 0.5rem;">
-                        Question {idx}
-                    </p>
-                    <p style="font-size: 1.1rem; margin-bottom: 1rem;">{q['question']}</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-            answer = st.text_area(
-                "Your answer:",
-                placeholder="Type your answer here...",
-                height=120,
-                key=f"sa_{q['id']}"
-            )
-            st.session_state.quiz_answers[q["id"]] = answer
             st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("---")
@@ -453,161 +466,158 @@ elif st.session_state.assessment_step == 2:
                 st.rerun()
         with col2:
             if st.form_submit_button("Submit Assessment", use_container_width=True, type="primary"):
-                # Check if all questions answered
-                all_answered = True
-                for q in QUIZ_QUESTIONS["short_answer"]:
-                    if not st.session_state.quiz_answers.get(q["id"], "").strip():
-                        all_answered = False
-                        break
+                # Validate all answered
+                all_answered = all(
+                    q["id"] in st.session_state.quiz_answers and st.session_state.quiz_answers[q["id"]] not in [None, ""]
+                    for q in st.session_state.dynamic_quiz
+                )
 
                 if all_answered:
-                    # Calculate results
-                    result = calculate_assessment_score(st.session_state.quiz_answers)
-                    st.session_state.assessment_result = result
                     st.session_state.assessment_step = 3
-                    st.session_state.assessment_complete = True
                     st.rerun()
                 else:
                     st.error("Please answer all questions before submitting.")
 
 # STEP 3: Results
 elif st.session_state.assessment_step == 3:
-    result = st.session_state.assessment_result
+    st.markdown("## Assessment Complete!")
+
+    # Score quiz if not already scored
+    if "quiz_result" not in st.session_state:
+        with st.spinner("📊 Evaluating your answers..."):
+            scoring_result = score_quiz(
+                st.session_state.dynamic_quiz,
+                st.session_state.quiz_answers
+            )
+
+            if scoring_result["success"]:
+                st.session_state.quiz_result = scoring_result["result"]
+            else:
+                st.error(f"Scoring failed: {scoring_result.get('error')}")
+                st.stop()
+
+    # Generate learning plan if not already generated
+    if "learning_plan" not in st.session_state:
+        with st.spinner("🎨 Creating your personalized learning path..."):
+            plan_result = generate_learning_plan(
+                st.session_state.basic_info,
+                st.session_state.quiz_result
+            )
+
+            if plan_result["success"]:
+                st.session_state.learning_plan = plan_result["plan"]
+                st.session_state.plan_file_path = plan_result.get("file_path")
+                st.session_state.assessment_complete = True
+            else:
+                st.error(f"Plan generation failed: {plan_result.get('error')}")
+                st.stop()
+
+    # Display results
+    result = st.session_state.quiz_result
     basic_info = st.session_state.basic_info
 
-    st.markdown("## Assessment Complete!")
     st.markdown(f"Congratulations, **{basic_info['name']}**! Here are your results:")
-
     st.markdown("---")
 
     # Overall Result
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        level_class = f"level-{result['level'].lower()}"
         st.markdown(f"""
             <div class="result-card" style="text-align: center;">
                 <h3 style="color: #1E88E5; margin-bottom: 1rem;">Your Proficiency Level</h3>
-                <div class="{result['level_class']} level-badge">
+                <div class="{level_class} level-badge">
                     {result['level']}
                 </div>
                 <p style="font-size: 1.1rem; margin-top: 1rem; color: #666;">
-                    Overall Score: <strong>{result['final_score']:.1f}%</strong>
+                    Overall Score: <strong>{result['percentage']:.1f}%</strong>
                 </p>
             </div>
         """, unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # Detailed Breakdown
-    st.markdown("### Detailed Score Breakdown")
+    # Feedback
+    st.markdown("### 💬 Detailed Feedback")
+    st.info(result['overall_feedback'])
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"""
-            <div class="result-card">
-                <h4>Multiple Choice</h4>
-                <p style="font-size: 2rem; color: #1E88E5; margin: 0.5rem 0;">
-                    {result['mc_correct']}/{result['mc_total']}
-                </p>
-                <p style="color: #666;">Score: {result['mc_score']:.1f}%</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("#### ✨ Your Strengths")
+        for strength in result['strengths']:
+            st.markdown(f"- {strength}")
 
     with col2:
-        st.markdown(f"""
-            <div class="result-card">
-                <h4>Short Answer</h4>
-                <p style="font-size: 2rem; color: #1E88E5; margin: 0.5rem 0;">
-                    {result['sa_score']:.0f}%
-                </p>
-                <p style="color: #666;">Based on answer quality</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # AI-Generated Recommendations
-    st.markdown("### Your Personalized Learning Path")
-    recommendations = generate_ai_recommendations(result, basic_info)
-
-    st.success(f"""
-    **Great news!** Based on your **{result['level']}** level and your goal to
-    *"{basic_info['learning_goal']}"*, we've created a customized learning plan for you.
-    """)
-
-    # Recommended Modules
-    st.markdown("#### Recommended Learning Modules")
-    cols = st.columns(2)
-    for idx, module in enumerate(recommendations["modules"]):
-        with cols[idx % 2]:
-            st.markdown(f"""
-                <div class="result-card">
-                    <p style="margin: 0;">{module}</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Focus Areas
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("#### Focus Areas")
-        for area in recommendations["focus_areas"]:
+        st.markdown("#### 🎯 Areas to Improve")
+        for area in result['areas_for_improvement']:
             st.markdown(f"- {area}")
 
-    with col2:
-        st.markdown("#### Timeline & Next Steps")
-        st.markdown(f"**Estimated Timeline:** {recommendations['estimated_time']}")
-        st.markdown(f"**Next Step:** {recommendations['next_steps']}")
+    st.markdown("---")
+
+    # Learning Plan Preview
+    st.markdown("### 📚 Your Personalized Learning Path")
+    plan = st.session_state.learning_plan
+
+    st.success(f"""
+    **Great news!** We've created {len(plan['modules'])} custom modules for you based on your
+    {result['level']} level and your goal: "{basic_info['learning_goal']}".
+    """)
+
+    # Show modules
+    for idx, module in enumerate(plan['modules'], 1):
+        with st.expander(f"📖 Module {idx}: {module['title']}", expanded=(idx == 1)):
+            st.markdown(f"**{module['description']}**")
+            st.markdown(f"- **Duration:** {module['duration']}")
+            st.markdown(f"- **Lessons:** {module['lessons_count']}")
+            st.markdown(f"- **Hours:** {module['estimated_hours']}h")
+            st.markdown(f"- **Level:** {module['difficulty']}")
+            st.markdown("**Skills you'll learn:**")
+            for skill in module['skills']:
+                st.markdown(f"  - {skill}")
 
     st.markdown("---")
 
-    # Call to Action
+    # Action Buttons
     st.markdown("### Ready to Start Learning?")
-
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("Download Results", use_container_width=True):
-            # Create downloadable report
-            report = {
-                "basic_info": basic_info,
-                "assessment_result": result,
-                "recommendations": recommendations
-            }
-            st.download_button(
-                "Download JSON Report",
-                data=json.dumps(report, indent=2),
-                file_name=f"poselinguo_assessment_{basic_info['name'].replace(' ', '_')}.json",
-                mime="application/json",
-                use_container_width=True
-            )
+        # Download plan
+        st.download_button(
+            "📥 Download Plan (JSON)",
+            data=json.dumps(plan, indent=2, ensure_ascii=False),
+            file_name=f"learning_plan_{plan['user_id']}.json",
+            mime="application/json",
+            use_container_width=True
+        )
 
     with col2:
-        if st.button("Retake Assessment", use_container_width=True):
-            # Reset assessment
-            st.session_state.assessment_step = 1
-            st.session_state.quiz_answers = {}
-            st.session_state.assessment_result = None
+        # Retake assessment
+        if st.button("🔄 Retake Assessment", use_container_width=True):
+            # Clear all assessment state
+            for key in ["assessment_step", "dynamic_quiz", "quiz_answers", "quiz_result", "learning_plan"]:
+                st.session_state.pop(key, None)
             st.session_state.assessment_complete = False
+            st.session_state.assessment_step = 1
             st.rerun()
 
     with col3:
-        if st.button("Start Learning", use_container_width=True, type="primary"):
-            st.balloons()
-            st.success("Awesome! Your learning modules are being prepared. Navigate to the Learning page to begin!")
-
-            # Store user profile
-            if "user_profile" not in st.session_state:
-                st.session_state.user_profile = {}
-
-            st.session_state.user_profile.update({
+        # Start learning
+        if st.button("🚀 Start Learning", use_container_width=True, type="primary"):
+            # Update user profile with assessment results
+            st.session_state.user_profile = {
+                "id": plan["user_id"],
                 "name": basic_info["name"],
                 "level": result["level"],
-                "assessment_date": result["timestamp"],
+                "assessment_date": plan.get("created_at"),
                 "learning_goal": basic_info["learning_goal"],
-                "recommended_modules": recommendations["modules"]
-            })
+                "completed_modules": [],
+                "current_module": None,
+                "total_hours": 0
+            }
+
+            st.balloons()
+            st.success("Great! Your modules are ready. Navigate to the Modules page to begin!")
 
 # Sidebar Info
 with st.sidebar:
